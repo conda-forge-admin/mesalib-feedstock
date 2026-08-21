@@ -14,6 +14,8 @@ source:
     - if: win
       then:
         - patches/0001-Add-inteljitevents-module.patch
+    # https://gitlab.freedesktop.org/mesa/mesa/-/work_items/16136
+    - patches/0002-anv-i915-expose-a-cached-coherent-memory-type-where-t.patch
 
 build:
   number: 1
