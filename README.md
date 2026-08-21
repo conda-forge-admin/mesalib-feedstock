@@ -64,6 +64,9 @@ Current release info
 
 | Name | Downloads | Version | Platforms |
 | --- | --- | --- | --- |
+| [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--anv-green.svg)](https://anaconda.org/conda-forge/mesa-anv) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-anv.svg)](https://anaconda.org/conda-forge/mesa-anv) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-anv.svg)](https://anaconda.org/conda-forge/mesa-anv) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-anv.svg)](https://anaconda.org/conda-forge/mesa-anv) |
+| [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--intel-green.svg)](https://anaconda.org/conda-forge/mesa-intel) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-intel.svg)](https://anaconda.org/conda-forge/mesa-intel) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-intel.svg)](https://anaconda.org/conda-forge/mesa-intel) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-intel.svg)](https://anaconda.org/conda-forge/mesa-intel) |
+| [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--iris-green.svg)](https://anaconda.org/conda-forge/mesa-iris) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-iris.svg)](https://anaconda.org/conda-forge/mesa-iris) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-iris.svg)](https://anaconda.org/conda-forge/mesa-iris) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-iris.svg)](https://anaconda.org/conda-forge/mesa-iris) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--kosmickrisp-green.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--lavapipe-green.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--libgallium-green.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) |
@@ -87,7 +90,7 @@ How to use
 <summary>With conda</summary>
 
 ```
-conda install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
+conda install mesa-anv mesa-intel mesa-iris mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
@@ -96,7 +99,7 @@ conda install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesal
 <summary>With mamba</summary>
 
 ```
-mamba install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
+mamba install mesa-anv mesa-intel mesa-iris mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
@@ -106,9 +109,9 @@ mamba install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesal
 
 ```
 # for adding to your local project
-pixi add mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
+pixi add mesa-anv mesa-intel mesa-iris mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 # for installing globally
-pixi global install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
+pixi global install mesa-anv mesa-intel mesa-iris mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
@@ -116,13 +119,13 @@ pixi global install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe
 Search package versions
 -----------------------
 
-It is possible to list all of the versions of `mesa-kosmickrisp` available on your platform:
+It is possible to list all of the versions of `mesa-anv` available on your platform:
 
 <details>
 <summary>With conda</summary>
 
 ```
-conda search mesa-kosmickrisp --channel conda-forge
+conda search mesa-anv --channel conda-forge
 ```
 
 </details>
@@ -131,7 +134,7 @@ conda search mesa-kosmickrisp --channel conda-forge
 <summary>With mamba</summary>
 
 ```
-mamba search mesa-kosmickrisp --channel conda-forge
+mamba search mesa-anv --channel conda-forge
 ```
 
 </details>
@@ -140,7 +143,7 @@ mamba search mesa-kosmickrisp --channel conda-forge
 <summary>With pixi</summary>
 
 ```
-pixi search mesa-kosmickrisp --channel conda-forge
+pixi search mesa-anv --channel conda-forge
 ```
 
 </details>
@@ -150,13 +153,13 @@ pixi search mesa-kosmickrisp --channel conda-forge
 
 ```
 # Search all versions available on your platform:
-mamba repoquery search mesa-kosmickrisp --channel conda-forge
+mamba repoquery search mesa-anv --channel conda-forge
 
-# List packages depending on `mesa-kosmickrisp`:
-mamba repoquery whoneeds mesa-kosmickrisp --channel conda-forge
+# List packages depending on `mesa-anv`:
+mamba repoquery whoneeds mesa-anv --channel conda-forge
 
-# List dependencies of `mesa-kosmickrisp`:
-mamba repoquery depends mesa-kosmickrisp --channel conda-forge
+# List dependencies of `mesa-anv`:
+mamba repoquery depends mesa-anv --channel conda-forge
 ```
 
 </details>
