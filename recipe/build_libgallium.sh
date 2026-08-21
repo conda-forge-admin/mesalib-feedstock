@@ -7,6 +7,15 @@ export PKG_CONFIG=$BUILD_PREFIX/bin/pkg-config
 
 MESA_PLATFORMS="x11"
 
+# Every gallium driver named here is compiled into libgallium-${PKG_VERSION}.so,
+# which this package ships.  iris (Intel Gen8+) is only useful where Intel GPUs
+# exist, and pulling it in costs the CLC toolchain, so keep it to linux-64.
+if [[ "${target_platform}" == "linux-64" ]]; then
+  GALLIUM_DRIVERS="llvmpipe,iris"
+else
+  GALLIUM_DRIVERS="llvmpipe"
+fi
+
 if [[ $CONDA_BUILD_CROSS_COMPILATION == "1" ]]; then
   if [[ "${CMAKE_CROSSCOMPILING_EMULATOR:-}" == "" ]]; then
     rm $PREFIX/bin/llvm-config
@@ -25,7 +34,7 @@ meson setup builddir/ \
   -Dgallium-va=disabled \
   -Dgbm=enabled \
   -Dshared-glapi=enabled \
-  -Dgallium-drivers=llvmpipe \
+  -Dgallium-drivers=${GALLIUM_DRIVERS} \
   -Degl=enabled \
   -Dglvnd=enabled \
   -Dglx=dri \
@@ -49,3 +58,8 @@ ninja -C builddir/ install
 # rather than by this one.  What is left here is the shared runtime.
 rm -f $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
 rm -f $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
+rm -f $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+
+# 00-iris-defaults.conf stays here: it is inert app-workaround data that only
+# has any effect once iris is actually registered, and mesa-iris ships nothing
+# but the symlink, so it has no build of its own to take the file from.

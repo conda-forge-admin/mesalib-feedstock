@@ -168,6 +168,14 @@ outputs:
         - libdrm
         - llvm
         - llvmdev
+        # iris compiles its internal OpenCL C kernels with mesa-clc at build
+        # time, which needs clang and the SPIR-V/LLVM translator.  Neither is
+        # a runtime dependency of the result.
+        - if: x86_64
+          then:
+            - clangdev
+            - llvm-spirv
+            - libllvmspirv
         - libxcb
         - xorg-libx11
         - xorg-libxext
@@ -197,6 +205,7 @@ outputs:
           # ... and none of the per-driver registrations.
           - test ! -e $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
           - test ! -e $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
+          - test ! -e $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
           - test ! -d $PREFIX/share/vulkan
 
   - package:
@@ -256,6 +265,91 @@ outputs:
             then:
               - if not exist %LIBRARY_PREFIX%\bin\opengl32.dll exit 1
               - if not exist %LIBRARY_PREFIX%\bin\libgallium_wgl.dll exit 1
+
+  - package:
+      name: mesa-iris
+      version: ${{ version }}
+    build:
+      # iris drives Intel Gen8+ GPUs, which only exist on x86_64 Linux.
+      skip:
+        - not (linux and x86_64)
+      script: build_iris
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-iris', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+          # the driver has to actually be inside the libgallium we depend on,
+          # not merely named by the symlink -- every libgallium carries the
+          # driver-name table, so probe for iris code instead
+          - grep -qa iris_bufmgr $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-anv
+      version: ${{ version }}
+    build:
+      # anv talks to the i915/xe kernel drivers, which are x86_64 Linux only.
+      skip:
+        - not (linux and x86_64)
+      script: build_anv
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - flex
+        - bison
+        - pkg-config
+        - glslang
+      host:
+        - expat
+        - zlib
+        - zstd
+        - libdrm
+        - spirv-tools
+        - llvm
+        - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - libxcb
+        - xorg-libx11
+        - xorg-xorgproto
+        - xorg-libxrandr
+        - xorg-libxshmfence
+      run_exports:
+        - ${{ pin_subpackage('mesa-anv', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libvulkan_intel${SHLIB_EXT}
+          - test -f $PREFIX/share/vulkan/icd.d/intel_icd.x86_64.json
+          - test -f $PREFIX/share/drirc.d/00-anv-defaults.conf
+
+  - package:
+      name: mesa-intel
+      version: ${{ version }}
+    build:
+      skip:
+        - not (linux and x86_64)
+    requirements:
+      run:
+        - ${{ pin_subpackage('mesa-iris', exact=True) }}
+        - ${{ pin_subpackage('mesa-anv', exact=True) }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libvulkan_intel${SHLIB_EXT}
+          - test -f $PREFIX/share/vulkan/icd.d/intel_icd.x86_64.json
 
   - package:
       name: mesalib
