@@ -8,12 +8,20 @@ export PKG_CONFIG=$BUILD_PREFIX/bin/pkg-config
 MESA_PLATFORMS="x11"
 
 # Every gallium driver named here is compiled into libgallium-${PKG_VERSION}.so,
-# which this package ships.  iris (Intel Gen8+) is only useful where Intel GPUs
-# exist, and pulling it in costs the CLC toolchain, so keep it to linux-64.
+# which this package ships.  The per-driver packages (mesa-iris, mesa-zink, ...)
+# add nothing but the lib/dri symlink that registers one of them with the DRI
+# loader, so this list is what decides which of those packages can exist.
+#
+# Kept off the list on purpose:
+#   radeonsi / radv  need libdrm >= 2.4.133; conda-forge is on 2.4.129.
+#   nouveau vulkan   (NVK) needs cbindgen, which conda-forge does not package.
+#   softpipe         has no lib/dri name of its own -- it shares "swrast" with
+#                    llvmpipe and is only reachable via GALLIUM_DRIVER, so it
+#                    could not be installed independently anyway.
 if [[ "${target_platform}" == "linux-64" ]]; then
-  GALLIUM_DRIVERS="llvmpipe,iris"
+  GALLIUM_DRIVERS="llvmpipe,iris,crocus,i915,nouveau,r300,r600,zink,virgl,svga,d3d12"
 else
-  GALLIUM_DRIVERS="llvmpipe"
+  GALLIUM_DRIVERS="llvmpipe,zink,virgl"
 fi
 
 if [[ $CONDA_BUILD_CROSS_COMPILATION == "1" ]]; then
@@ -32,6 +40,7 @@ meson setup builddir/ \
   -Dgles1=disabled \
   -Dgles2=disabled \
   -Dgallium-va=disabled \
+  -Dvideo-codecs= \
   -Dgbm=enabled \
   -Dshared-glapi=enabled \
   -Dgallium-drivers=${GALLIUM_DRIVERS} \
@@ -50,16 +59,13 @@ ninja -C builddir/ -j ${CPU_COUNT}
 
 ninja -C builddir/ install
 
-# The gallium "megadriver" model: every gallium driver selected above is
-# compiled into libgallium-${PKG_VERSION}.so, and each <driver>_dri.so is just
-# a symlink to the generic libdril_dri.so loader stub that names which driver
-# to pick.  Those symlinks are what actually registers a driver with the DRI
-# loader, so they are shipped by the per-driver packages (mesa-llvmpipe, ...)
-# rather than by this one.  What is left here is the shared runtime.
-rm -f $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
-rm -f $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
-rm -f $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+# The gallium "megadriver" model: each <driver>_dri.so is only a symlink to the
+# generic libdril_dri.so loader stub, and the symlink's *name* is what tells the
+# loader which driver to pick.  Those symlinks are the per-driver packages'
+# entire contents, so strip every one of them here and keep the stub.
+find $PREFIX/lib/dri -type l -name "*_dri${SHLIB_EXT}" -delete
+test -f $PREFIX/lib/dri/libdril_dri${SHLIB_EXT}
 
-# 00-iris-defaults.conf stays here: it is inert app-workaround data that only
-# has any effect once iris is actually registered, and mesa-iris ships nothing
-# but the symlink, so it has no build of its own to take the file from.
+# The per-driver drirc snippets stay: they are inert app-workaround data that
+# only takes effect once the matching driver is registered, and the per-driver
+# packages have no build of their own to take the files from.

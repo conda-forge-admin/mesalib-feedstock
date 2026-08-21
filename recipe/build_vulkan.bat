@@ -1,7 +1,18 @@
 @echo on
-@REM microsoft-experimental added for required DirectX-headers
 
 echo MESON_ARGS are %MESON_ARGS%
+
+@REM One Vulkan ICD per package: each statically links the Vulkan runtime it
+@REM needs, so there is nothing to share between them and no reason to ship
+@REM them together.  lavapipe is the software rasterizer; dzn (Dozen) runs
+@REM Vulkan on top of D3D12, so it is hardware-backed and belongs in its own
+@REM package rather than riding along inside mesa-lavapipe.
+if "%PKG_NAME%"=="mesa-lavapipe" set VULKAN_DRIVERS=swrast
+if "%PKG_NAME%"=="mesa-dzn" set VULKAN_DRIVERS=microsoft-experimental
+if "%VULKAN_DRIVERS%"=="" (
+  echo build_vulkan.bat has no vulkan-drivers mapping for %PKG_NAME%
+  exit 1
+)
 
 @REM hmaarrfk - 2026/03
 @REM I'm not sure why something is looking for this lib file
@@ -19,7 +30,7 @@ meson setup builddir ^
   -Degl=disabled ^
   -Dglx=disabled ^
   -Dllvm=enabled ^
-  -Dvulkan-drivers=swrast,microsoft-experimental ^
+  -Dvulkan-drivers=%VULKAN_DRIVERS% ^
   -Dopengl=true ^
   -Dglx-direct=false
 if %ERRORLEVEL% neq 0 exit 1

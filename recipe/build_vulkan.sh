@@ -5,7 +5,23 @@ set -ex
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$BUILD_PREFIX/lib/pkgconfig
 export PKG_CONFIG=$BUILD_PREFIX/bin/pkg-config
 
-VULKAN_DRIVERS="swrast"
+# Unlike the gallium drivers, a Vulkan ICD statically links the Vulkan runtime,
+# NIR and mesa-util that it needs, so there is no shared library to factor out
+# and each driver gets its own meson configuration.  Mesa has no option to link
+# that runtime shared -- see src/vulkan/{runtime,util,wsi}/meson.build, all of
+# which are unconditional static_library() -- because a process routinely loads
+# several ICDs at once and they must not share mesa-internal symbols.
+case "${PKG_NAME}" in
+  mesa-lavapipe)     VULKAN_DRIVERS="swrast" ;;
+  mesa-anv)          VULKAN_DRIVERS="intel" ;;
+  mesa-hasvk)        VULKAN_DRIVERS="intel_hasvk" ;;
+  mesa-venus)        VULKAN_DRIVERS="virtio" ;;
+  mesa-kosmickrisp)  VULKAN_DRIVERS="kosmickrisp" ;;
+  *)
+    echo "build_vulkan.sh has no vulkan-drivers mapping for ${PKG_NAME}" >&2
+    exit 1
+    ;;
+esac
 
 if [[ "${target_platform}" == osx-* ]]; then
   MESA_PLATFORMS="macos"
@@ -29,6 +45,7 @@ meson setup builddir/ \
   -Dgles1=disabled \
   -Dgles2=disabled \
   -Dgallium-va=disabled \
+  -Dvideo-codecs= \
   -Dgbm=disabled \
   -Dshared-glapi=enabled \
   -Dgallium-drivers= \
@@ -45,6 +62,3 @@ meson setup builddir/ \
 ninja -C builddir/ -j ${CPU_COUNT}
 
 ninja -C builddir/ install
-
-# meson test -C builddir/ \
-#   -t 4
