@@ -16,7 +16,7 @@ source:
         - patches/0001-Add-inteljitevents-module.patch
 
 build:
-  number: 0
+  number: 1
 
 outputs:
   - package:
@@ -130,12 +130,16 @@ outputs:
           - test -f $PREFIX/share/vulkan/icd.d/kosmickrisp_mesa_icd.aarch64.json
 
   - package:
-      name: mesa-llvmpipe
+      name: mesa-libgallium
       version: ${{ version }}
     build:
+      # On Windows the GL build produces opengl32.dll / libgallium_wgl.dll
+      # instead of a lib/dri tree, so there is nothing to split out there;
+      # mesa-llvmpipe keeps shipping the whole thing.
       skip:
         - osx
-      script: build_llvmpipe
+        - win
+      script: build_libgallium
     requirements:
       build:
         - ${{ compiler('c') }}
@@ -145,45 +149,94 @@ outputs:
         - pyyaml
         - mako
         - packaging
-        - if: unix
-          then:
-            - flex
-            - bison
-        - if: win
-          then: winflexbison
+        - flex
+        - bison
         - pkg-config
         - if: build_platform != host_platform
           then:
             - llvm
             - llvmdev
-            - if: linux
-              then: libdrm
+            - libdrm
         - glslang
       host:
-        - if: unix
-          then: expat
+        - expat
         - zlib
         - zstd
         - spirv-tools
-        - if: linux
-          then: libdrm
+        - libdrm
         - llvm
         - llvmdev
-        - if: linux
-          then:
-            - libxcb
-            - xorg-libx11
-            - xorg-libxext
-            - xorg-libxxf86vm
-            - xorg-xorgproto
-            - xorg-libxrandr
-            - xorg-libxshmfence
-            - libglvnd-devel
-            - libegl-devel
-            - libglx-devel
+        - libxcb
+        - xorg-libx11
+        - xorg-libxext
+        - xorg-libxxf86vm
+        - xorg-xorgproto
+        - xorg-libxrandr
+        - xorg-libxshmfence
+        - libglvnd-devel
+        - libegl-devel
+        - libglx-devel
+      run_exports:
+        - ${{ pin_subpackage('mesa-libgallium', upper_bound='x.x') }}
+    tests:
+      - requirements:
+          run:
+            - pkg-config
+        script:
+          # The shared runtime every gallium driver needs.
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgbm.so.1
+          - test -f $PREFIX/lib/libGLX_mesa.so.0
+          - test -f $PREFIX/lib/libEGL_mesa${SHLIB_EXT}
+          - test -f $PREFIX/lib/dri/libdril_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/gbm/dri_gbm${SHLIB_EXT}
+          - test -f $PREFIX/share/glvnd/egl_vendor.d/50_mesa.json
+          - pkg-config --exists gbm
+          # ... and none of the per-driver registrations.
+          - test ! -e $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
+          - test ! -e $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
+          - test ! -d $PREFIX/share/vulkan
+
+  - package:
+      name: mesa-llvmpipe
+      version: ${{ version }}
+    build:
+      skip:
+        - osx
+      script: build_llvmpipe
+    requirements:
+      build:
+        # On Linux this output only drops the swrast symlinks next to the
+        # loader stub that mesa-libgallium already installed, so it needs no
+        # toolchain of its own.
         - if: win
           then:
+            - ${{ compiler('c') }}
+            - ${{ stdlib('c') }}
+            - ${{ compiler('cxx') }}
+            - meson
+            - pyyaml
+            - mako
+            - packaging
+            - winflexbison
+            - pkg-config
+            - glslang
+      host:
+        - if: linux
+          then:
+            - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+        - if: win
+          then:
+            - zlib
+            - zstd
+            - spirv-tools
+            - llvm
+            - llvmdev
             - libxml2-devel
+      run:
+        - if: linux
+          then:
+            - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
       run_exports:
         - ${{ pin_subpackage('mesa-llvmpipe', upper_bound='x.x') }}
     tests:
@@ -191,6 +244,8 @@ outputs:
           - if: linux
             then:
               - test -f $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
+              - test -f $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
+              # pulled back in through mesa-libgallium
               - test -f $PREFIX/lib/libgbm.so.1
               - test -f $PREFIX/lib/libGLX_mesa.so.0
               - test -f $PREFIX/lib/libEGL_mesa${SHLIB_EXT}
