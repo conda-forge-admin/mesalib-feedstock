@@ -66,6 +66,7 @@ Current release info
 | --- | --- | --- | --- |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--kosmickrisp-green.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-kosmickrisp.svg)](https://anaconda.org/conda-forge/mesa-kosmickrisp) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--lavapipe-green.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-lavapipe.svg)](https://anaconda.org/conda-forge/mesa-lavapipe) |
+| [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--libgallium-green.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-libgallium.svg)](https://anaconda.org/conda-forge/mesa-libgallium) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesa--llvmpipe-green.svg)](https://anaconda.org/conda-forge/mesa-llvmpipe) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesa-llvmpipe.svg)](https://anaconda.org/conda-forge/mesa-llvmpipe) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesa-llvmpipe.svg)](https://anaconda.org/conda-forge/mesa-llvmpipe) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesa-llvmpipe.svg)](https://anaconda.org/conda-forge/mesa-llvmpipe) |
 | [![Conda Recipe](https://img.shields.io/badge/recipe-mesalib-green.svg)](https://anaconda.org/conda-forge/mesalib) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/mesalib.svg)](https://anaconda.org/conda-forge/mesalib) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/mesalib.svg)](https://anaconda.org/conda-forge/mesalib) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/mesalib.svg)](https://anaconda.org/conda-forge/mesalib) |
 
@@ -86,7 +87,7 @@ How to use
 <summary>With conda</summary>
 
 ```
-conda install mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
+conda install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
@@ -95,7 +96,7 @@ conda install mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
 <summary>With mamba</summary>
 
 ```
-mamba install mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
+mamba install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
@@ -105,9 +106,9 @@ mamba install mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
 
 ```
 # for adding to your local project
-pixi add mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
+pixi add mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 # for installing globally
-pixi global install mesa-kosmickrisp mesa-lavapipe mesa-llvmpipe mesalib
+pixi global install mesa-kosmickrisp mesa-lavapipe mesa-libgallium mesa-llvmpipe mesalib
 ```
 
 </details>
