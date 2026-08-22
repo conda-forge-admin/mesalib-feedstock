@@ -49,3 +49,18 @@ if %ERRORLEVEL% neq 0 exit 1
 @REM I'm not sure why something is looking for this lib file
 @REM Removed so it doesn't get included as part of the final package
 del %LIBRARY_PREFIX%\lib\zstd.dll.lib
+
+@REM Any Vulkan driver on Windows pulls in DirectX-Headers (see meson.build's
+@REM "with_any_vk and host_machine.system() == 'windows'"), and meson always
+@REM builds it from the vendored subproject because conda-forge's
+@REM directx-headers ships no pkg-config file for dependency() to find.  The
+@REM subproject then installs ~47 headers plus static libs that belong to the
+@REM directx-headers package.  Mesa links what it needs statically, so drop the
+@REM installed copies rather than clobber another package's files.
+if exist %LIBRARY_PREFIX%\include\directx rmdir /s /q %LIBRARY_PREFIX%\include\directx
+if exist %LIBRARY_PREFIX%\include\dxguids rmdir /s /q %LIBRARY_PREFIX%\include\dxguids
+if exist %LIBRARY_PREFIX%\include\wsl rmdir /s /q %LIBRARY_PREFIX%\include\wsl
+if exist %LIBRARY_PREFIX%\include\composition rmdir /s /q %LIBRARY_PREFIX%\include\composition
+if exist %LIBRARY_PREFIX%\lib\libDirectX-Guids.a del %LIBRARY_PREFIX%\lib\libDirectX-Guids.a
+if exist %LIBRARY_PREFIX%\lib\libd3dx12-format-properties.a del %LIBRARY_PREFIX%\lib\libd3dx12-format-properties.a
+if exist %LIBRARY_PREFIX%\lib\pkgconfig\DirectX-Headers.pc del %LIBRARY_PREFIX%\lib\pkgconfig\DirectX-Headers.pc

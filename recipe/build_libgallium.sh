@@ -69,3 +69,15 @@ test -f $PREFIX/lib/dri/libdril_dri${SHLIB_EXT}
 # The per-driver drirc snippets stay: they are inert app-workaround data that
 # only takes effect once the matching driver is registered, and the per-driver
 # packages have no build of their own to take the files from.
+
+# d3d12 needs DirectX-Headers, and meson always builds it from the vendored
+# subproject: conda-forge's directx-headers is a noarch package that unpacks
+# into Library/ (the Windows layout) and ships no pkg-config file, so
+# dependency('directx-headers') cannot succeed on any platform and listing it
+# as a host requirement does nothing.  The subproject then installs its headers
+# and static libs into $PREFIX, where they belong to directx-headers and not to
+# us.  Mesa links what it needs statically, so drop the installed copies.
+rm -rf $PREFIX/include/directx $PREFIX/include/dxguids $PREFIX/include/wsl
+rm -rf $PREFIX/include/composition
+rm -f $PREFIX/lib/libDirectX-Guids.a $PREFIX/lib/libd3dx12-format-properties.a
+rm -f $PREFIX/lib/pkgconfig/DirectX-Headers.pc

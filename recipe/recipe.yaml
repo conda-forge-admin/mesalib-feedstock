@@ -64,10 +64,6 @@ outputs:
         - clangdev
         - llvm-spirv
         - libllvmspirv
-        # d3d12 (WSL) wants DirectX-Headers.  Supplying it here stops meson
-        # falling back to the vendored subproject, which would install a copy
-        # of the headers and clobber the directx-headers package.
-        - directx-headers
         - libxcb
         - xorg-libx11
         - xorg-libxext
@@ -97,8 +93,12 @@ outputs:
           # ... and not a single driver registered.
           - test -z "$(find $PREFIX/lib/dri -type l -name '*_dri.so')"
           - test ! -d $PREFIX/share/vulkan
-          # DirectX-Headers came from the host env, not the vendored subproject.
+          # None of the vendored DirectX-Headers subproject leaked into the
+          # package -- those files belong to directx-headers.
           - test ! -e $PREFIX/include/directx/d3d12.h
+          - test ! -e $PREFIX/include/dxguids/dxguids.h
+          - test ! -e $PREFIX/lib/libDirectX-Guids.a
+          - test ! -e $PREFIX/lib/pkgconfig/DirectX-Headers.pc
 
   - package:
       name: mesa-llvmpipe
@@ -415,7 +415,6 @@ outputs:
         - if: win
           then:
             - libxml2-devel
-            - directx-headers
       run_exports:
         - ${{ pin_subpackage('mesa-lavapipe', upper_bound='x.x') }}
     tests:
