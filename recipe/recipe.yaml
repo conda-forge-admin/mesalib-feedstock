@@ -396,7 +396,11 @@ outputs:
         - if: unix
           then:
             - expat
-            - libdrm
+        # libdrm is the userspace wrapper around the Linux kernel's DRM
+        # ioctls and has no macOS build.  lavapipe is a pure software
+        # rasterizer, so mesa only asks for libdrm via the linux winsys.
+        - if: linux
+          then: libdrm
         - zlib
         - zstd
         - spirv-tools
@@ -474,7 +478,8 @@ outputs:
         - if: unix
           then:
             - expat
-            - libdrm
+        - if: linux
+          then: libdrm
         - zlib
         - zstd
         - spirv-tools
@@ -537,7 +542,8 @@ outputs:
         - if: unix
           then:
             - expat
-            - libdrm
+        - if: linux
+          then: libdrm
         - zlib
         - zstd
         - spirv-tools
@@ -600,7 +606,8 @@ outputs:
         - if: unix
           then:
             - expat
-            - libdrm
+        - if: linux
+          then: libdrm
         - zlib
         - zstd
         - spirv-tools
@@ -663,7 +670,8 @@ outputs:
         - if: unix
           then:
             - expat
-            - libdrm
+        - if: linux
+          then: libdrm
         - zlib
         - zstd
         - spirv-tools
