@@ -1,0 +1,92 @@
+From 8f4c9439463efb62529a3e17bf1a0f10d8adfba3 Mon Sep 17 00:00:00 2001
+From: Mark Harfouche <mark.harfouche@gmail.com>
+Date: Thu, 20 Aug 2026 08:00:41 -0400
+Subject: [PATCH] anv/i915: expose a cached+coherent memory type where the PAT
+ supports it
+
+anv_i915_physical_device_init_memory_types() picks its integrated-GPU
+memory types based on devinfo->has_llc.  Everything from Xe-HP on sets
+has_llc = false (XEHP_FEATURES), so every integrated part since Meteor
+Lake falls into the branch written for Atom parts and gets exactly two
+host-visible types: coherent-but-write-combining, and cached-but-not-
+coherent.  No type advertises HOST_COHERENT | HOST_CACHED together.
+
+Applications that ask for cached readback memory the usual way -- prefer
+HOST_VISIBLE | HOST_COHERENT | HOST_CACHED, fall back to HOST_VISIBLE |
+HOST_COHERENT -- therefore never match the preferred set and land on the
+write-combining type, where CPU reads are roughly two orders of magnitude
+slower.  Measured on Arrow Lake-S (ARL, i915), 32 MiB GPU->CPU readback,
+median of 25, including any invalidate the type requires:
+
+  type 0  HOST_VISIBLE | HOST_COHERENT                186.70 ms   0.18 GB/s
+  type 1  HOST_VISIBLE | HOST_CACHED                    1.77 ms  18.98 GB/s
+  type 2  HOST_VISIBLE | HOST_COHERENT | HOST_CACHED    1.37 ms  24.42 GB/s  (new)
+
+The new type is not just 135x the write-combining one, it also beats the
+cached-but-incoherent type, because it needs no invalidate at all.
+
+This is not a missing hardware capability.  These platforms have a PAT
+entry that is write-back on the CPU side and coherent on the GPU side
+(MTL/ARL: PAT 3, Xe2: PAT 1), anv_device_get_pat_entry() already maps
+ANV_BO_ALLOC_HOST_CACHED_COHERENT onto pat.cached_coherent, and the i915
+kmd backend already programs it via I915_GEM_CREATE_EXT_SET_PAT.  The
+combination was simply never advertised, so it was unreachable.  The xe
+kmd backend already exposes this type in the equivalent branch.
+
+Gate on the platform actually having that PAT entry rather than on
+has_llc, so the real Atom parts -- which have no set_pat uapi -- keep
+today's two types.
+
+Verified on ARL/i915 with no vkFlushMappedMemoryRanges or
+vkInvalidateMappedMemoryRanges issued for the new type, in both
+directions, with the CPU's cache lines for the destination deliberately
+dirtied before the GPU overwrote them: 20 x 8 MiB round trips through
+device-local memory compared byte for byte, plus 25 x 32 MiB GPU->CPU
+readbacks, no stale bytes.
+
+Upstream discussion:
+https://gitlab.freedesktop.org/mesa/mesa/-/work_items/16136
+---
+ src/intel/vulkan/i915/anv_device.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/intel/vulkan/i915/anv_device.c b/src/intel/vulkan/i915/anv_device.c
+index d39a7b6..367fcda 100644
+--- a/src/intel/vulkan/i915/anv_device.c
++++ b/src/intel/vulkan/i915/anv_device.c
+@@ -221,6 +221,32 @@ anv_i915_physical_device_init_memory_types(struct anv_physical_device *device)
+                           VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+          .heapIndex = 0,
+       };
++
++      /* Platforms from Xe-HP on report has_llc == false, so every integrated
++       * part since Meteor Lake lands here even though it is not an Atom and
++       * does have a PAT entry that is write-back on the CPU side and coherent
++       * on the GPU side (MTL/ARL: PAT 3, Xe2: PAT 1).
++       *
++       * anv_device_get_pat_entry() already maps ANV_BO_ALLOC_HOST_CACHED_COHERENT
++       * onto that entry, and i915_gem_create_uncached()/_ext() already program
++       * it, but no memory type advertised both bits, so the combination was
++       * unreachable.  Applications asking for cached readback memory had to
++       * settle for the write-combining type, where CPU reads are roughly two
++       * orders of magnitude slower.
++       *
++       * Expose the cached+coherent type where the PAT can back it.  Platforms
++       * without the set_pat uapi (the actual Atoms) keep the two types above.
++       */
++      if (device->info.has_set_pat_uapi &&
++          device->info.pat.cached_coherent.mmap == INTEL_DEVICE_INFO_MMAP_MODE_WB) {
++         device->memory.types[device->memory.type_count++] = (struct anv_memory_type) {
++            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
++                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
++                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
++                             VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
++            .heapIndex = 0,
++         };
++      }
+    }
+ 
+    return VK_SUCCESS;
+-- 
+2.51.0
+

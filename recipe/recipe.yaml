@@ -14,16 +14,361 @@ source:
     - if: win
       then:
         - patches/0001-Add-inteljitevents-module.patch
+    # https://gitlab.freedesktop.org/mesa/mesa/-/work_items/16136
+    - patches/0002-anv-i915-expose-a-cached-coherent-memory-type-where-t.patch
 
 build:
-  number: 0
+  number: 2
 
 outputs:
+  - package:
+      name: mesa-libgallium
+      version: ${{ version }}
+    build:
+      # On Windows the GL build produces opengl32.dll / libgallium_wgl.dll
+      # instead of a lib/dri tree, and macOS builds no GL at all, so there is
+      # nothing to split out on either.
+      skip:
+        - osx
+        - win
+      script: build_libgallium
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - flex
+        - bison
+        - pkg-config
+        - if: build_platform != host_platform
+          then:
+            - llvm
+            - llvmdev
+            - libdrm
+        - glslang
+      host:
+        - expat
+        - zlib
+        - zstd
+        - spirv-tools
+        - libdrm
+        - llvm
+        - llvmdev
+        # The Intel and Nouveau gallium drivers compile their internal OpenCL C
+        # kernels with mesa-clc at build time, which needs clang and the
+        # SPIR-V/LLVM translator.  Neither is a runtime dependency.
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - libxcb
+        - xorg-libx11
+        - xorg-libxext
+        - xorg-libxxf86vm
+        - xorg-xorgproto
+        - xorg-libxrandr
+        - xorg-libxshmfence
+        - libglvnd-devel
+        - libegl-devel
+        - libglx-devel
+      run_exports:
+        - ${{ pin_subpackage('mesa-libgallium', upper_bound='x.x') }}
+    tests:
+      - requirements:
+          run:
+            - pkg-config
+        script:
+          # The shared runtime every gallium driver needs.
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgbm.so.1
+          - test -f $PREFIX/lib/libGLX_mesa.so.0
+          - test -f $PREFIX/lib/libEGL_mesa${SHLIB_EXT}
+          - test -f $PREFIX/lib/dri/libdril_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/gbm/dri_gbm${SHLIB_EXT}
+          - test -f $PREFIX/share/glvnd/egl_vendor.d/50_mesa.json
+          - pkg-config --exists gbm
+          # ... and not a single driver registered.
+          - test -z "$(find $PREFIX/lib/dri -type l -name '*_dri.so')"
+          - test ! -d $PREFIX/share/vulkan
+          # None of the vendored DirectX-Headers subproject leaked into the
+          # package -- those files belong to directx-headers.
+          - test ! -e $PREFIX/include/directx/d3d12.h
+          - test ! -e $PREFIX/include/dxguids/dxguids.h
+          - test ! -e $PREFIX/lib/libDirectX-Guids.a
+          - test ! -e $PREFIX/lib/pkgconfig/DirectX-Headers.pc
+
+  - package:
+      name: mesa-llvmpipe
+      version: ${{ version }}
+    build:
+      # software rasterizer (LLVM JIT)
+      skip:
+        - osx
+      script:
+        - if: win
+          then: build_llvmpipe
+          else: build_dri_links
+    requirements:
+      build:
+        # On Linux this is two symlinks next to the loader stub that
+        # mesa-libgallium already installed, so it needs no toolchain.  Windows
+        # selects its gallium driver at runtime rather than by filename (see
+        # src/gallium/targets/wgl/wgl.c), so nothing can be split out there and
+        # this output stays the whole WGL build.
+        - if: win
+          then:
+            - ${{ compiler('c') }}
+            - ${{ stdlib('c') }}
+            - ${{ compiler('cxx') }}
+            - meson
+            - pyyaml
+            - mako
+            - packaging
+            - winflexbison
+            - pkg-config
+            - glslang
+      host:
+        - if: linux
+          then:
+            - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+        - if: win
+          then:
+            - zlib
+            - zstd
+            - spirv-tools
+            - llvm
+            - llvmdev
+            - libxml2-devel
+      run:
+        - if: linux
+          then:
+            - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-llvmpipe', upper_bound='x.x') }}
+    tests:
+      - script:
+          - if: linux
+            then:
+              - test -L $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
+              - test -L $PREFIX/lib/dri/kms_swrast_dri${SHLIB_EXT}
+              - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+          - if: win
+            then:
+              - if not exist %LIBRARY_PREFIX%\bin\opengl32.dll exit 1
+              - if not exist %LIBRARY_PREFIX%\bin\libgallium_wgl.dll exit 1
+
+  - package:
+      name: mesa-iris
+      version: ${{ version }}
+    build:
+      # Intel Gen8+
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-iris', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-crocus
+      version: ${{ version }}
+    build:
+      # Intel Gen4-7
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-crocus', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/crocus_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-i915
+      version: ${{ version }}
+    build:
+      # Intel Gen2-3
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-i915', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/i915_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-nouveau
+      version: ${{ version }}
+    build:
+      # NVIDIA, open
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-nouveau', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/nouveau_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-r300
+      version: ${{ version }}
+    build:
+      # AMD R300-R500
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-r300', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/r300_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-r600
+      version: ${{ version }}
+    build:
+      # AMD R600-Evergreen
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-r600', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/r600_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-svga
+      version: ${{ version }}
+    build:
+      # VMware guest
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-svga', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/vmwgfx_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-d3d12
+      version: ${{ version }}
+    build:
+      # D3D12, i.e. WSL
+      skip:
+        - not (linux and x86_64)
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-d3d12', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/d3d12_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-virgl
+      version: ${{ version }}
+    build:
+      # virtio-gpu guest
+      skip:
+        - osx
+        - win
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-virgl', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/virtio_gpu_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
+  - package:
+      name: mesa-zink
+      version: ${{ version }}
+    build:
+      # OpenGL on top of Vulkan
+      skip:
+        - osx
+        - win
+      script: build_dri_links
+    requirements:
+      host:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run:
+        - ${{ pin_subpackage('mesa-libgallium', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('mesa-zink', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -L $PREFIX/lib/dri/zink_dri${SHLIB_EXT}
+          - test -L $PREFIX/lib/dri/vkms_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
+
   - package:
       name: mesa-lavapipe
       version: ${{ version }}
     build:
-      script: build_lavapipe
+      # software rasterizer (LLVM JIT)
+      script: build_vulkan
     requirements:
       build:
         - ${{ compiler('c') }}
@@ -49,14 +394,21 @@ outputs:
         - glslang
       host:
         - if: unix
-          then: expat
-        - zlib
-        - zstd
+          then:
+            - expat
+        # libdrm is the userspace wrapper around the Linux kernel's DRM
+        # ioctls and has no macOS build.  lavapipe is a pure software
+        # rasterizer, so mesa only asks for libdrm via the linux winsys.
         - if: linux
           then: libdrm
+        - zlib
+        - zstd
         - spirv-tools
         - llvm
         - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
         - if: linux
           then:
             - libxcb
@@ -70,35 +422,292 @@ outputs:
       run_exports:
         - ${{ pin_subpackage('mesa-lavapipe', upper_bound='x.x') }}
     tests:
-      - requirements:
-          run:
-            - pkg-config
-        script:
+      - script:
           - if: unix
             then:
               - test -f $PREFIX/lib/libvulkan_lvp${SHLIB_EXT}
+              - test -f $PREFIX/share/drirc.d/00-lavapipe-defaults.conf
               - if: x86_64
-                then:
-                  - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.x86_64.json
-          - if: aarch64
-            then:
-              - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.aarch64.json
-          - if: ppc64le
-            then:
-              - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.ppc64le.json
+                then: test -f $PREFIX/share/vulkan/icd.d/lvp_icd.x86_64.json
+              - if: aarch64
+                then: test -f $PREFIX/share/vulkan/icd.d/lvp_icd.aarch64.json
+              - if: ppc64le
+                then: test -f $PREFIX/share/vulkan/icd.d/lvp_icd.ppc64le.json
+              # lavapipe alone, no second ICD riding along
+              - test 1 -eq "$(ls $PREFIX/share/vulkan/icd.d/ | wc -l)"
           - if: win
             then:
-              - if not exist %LIBRARY_PREFIX%\lib\vulkan_lvp.lib exit 1
               - if not exist %LIBRARY_PREFIX%\bin\vulkan_lvp.dll exit 1
               - if not exist %LIBRARY_PREFIX%\share\vulkan\icd.d\lvp_icd.x86_64.json exit 1
+              # dzn lives in mesa-dzn now, and DirectX-Headers is not vendored
+              - if exist %LIBRARY_PREFIX%\bin\vulkan_dzn.dll exit 1
+              - if exist %LIBRARY_PREFIX%\include\directx\d3d12.h exit 1
+
+  - package:
+      name: mesa-anv
+      version: ${{ version }}
+    build:
+      # Intel Gen8+
+      skip:
+        - not (linux and x86_64)
+      script: build_vulkan
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - if: unix
+          then:
+            - flex
+            - bison
+        - if: win
+          then: winflexbison
+        - pkg-config
+        - if: build_platform != host_platform
+          then:
+            - llvm
+            - llvmdev
+            - if: linux
+              then: libdrm
+        - glslang
+      host:
+        - if: unix
+          then:
+            - expat
+        - if: linux
+          then: libdrm
+        - zlib
+        - zstd
+        - spirv-tools
+        - llvm
+        - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - if: linux
+          then:
+            - libxcb
+            - xorg-libx11
+            - xorg-xorgproto
+            - xorg-libxrandr
+            - xorg-libxshmfence
+        - if: win
+          then:
+            - libxml2-devel
+            - directx-headers
+      run_exports:
+        - ${{ pin_subpackage('mesa-anv', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libvulkan_intel${SHLIB_EXT}
+          - test -f $PREFIX/share/vulkan/icd.d/intel_icd.x86_64.json
+          - test -f $PREFIX/share/drirc.d/00-anv-defaults.conf
+
+  - package:
+      name: mesa-hasvk
+      version: ${{ version }}
+    build:
+      # Intel Gen8-9 (legacy)
+      skip:
+        - not (linux and x86_64)
+      script: build_vulkan
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - if: unix
+          then:
+            - flex
+            - bison
+        - if: win
+          then: winflexbison
+        - pkg-config
+        - if: build_platform != host_platform
+          then:
+            - llvm
+            - llvmdev
+            - if: linux
+              then: libdrm
+        - glslang
+      host:
+        - if: unix
+          then:
+            - expat
+        - if: linux
+          then: libdrm
+        - zlib
+        - zstd
+        - spirv-tools
+        - llvm
+        - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - if: linux
+          then:
+            - libxcb
+            - xorg-libx11
+            - xorg-xorgproto
+            - xorg-libxrandr
+            - xorg-libxshmfence
+        - if: win
+          then:
+            - libxml2-devel
+            - directx-headers
+      run_exports:
+        - ${{ pin_subpackage('mesa-hasvk', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libvulkan_intel_hasvk${SHLIB_EXT}
+          - test -f $PREFIX/share/vulkan/icd.d/intel_hasvk_icd.x86_64.json
+          - test -f $PREFIX/share/drirc.d/00-hasvk-defaults.conf
+
+  - package:
+      name: mesa-venus
+      version: ${{ version }}
+    build:
+      # virtio-gpu guest
+      skip:
+        - not (linux and x86_64)
+      script: build_vulkan
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - if: unix
+          then:
+            - flex
+            - bison
+        - if: win
+          then: winflexbison
+        - pkg-config
+        - if: build_platform != host_platform
+          then:
+            - llvm
+            - llvmdev
+            - if: linux
+              then: libdrm
+        - glslang
+      host:
+        - if: unix
+          then:
+            - expat
+        - if: linux
+          then: libdrm
+        - zlib
+        - zstd
+        - spirv-tools
+        - llvm
+        - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - if: linux
+          then:
+            - libxcb
+            - xorg-libx11
+            - xorg-xorgproto
+            - xorg-libxrandr
+            - xorg-libxshmfence
+        - if: win
+          then:
+            - libxml2-devel
+            - directx-headers
+      run_exports:
+        - ${{ pin_subpackage('mesa-venus', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libvulkan_virtio${SHLIB_EXT}
+          - test -f $PREFIX/share/vulkan/icd.d/virtio_icd.x86_64.json
+          - test -f $PREFIX/share/drirc.d/00-venus-defaults.conf
+
+  - package:
+      name: mesa-dzn
+      version: ${{ version }}
+    build:
+      # Vulkan on top of D3D12 -- hardware-backed, so not part of mesalib
+      skip:
+        - not win
+      script: build_vulkan
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - ${{ compiler('cxx') }}
+        - meson
+        - pyyaml
+        - mako
+        - packaging
+        - if: unix
+          then:
+            - flex
+            - bison
+        - if: win
+          then: winflexbison
+        - pkg-config
+        - if: build_platform != host_platform
+          then:
+            - llvm
+            - llvmdev
+            - if: linux
+              then: libdrm
+        - glslang
+      host:
+        - if: unix
+          then:
+            - expat
+        - if: linux
+          then: libdrm
+        - zlib
+        - zstd
+        - spirv-tools
+        - llvm
+        - llvmdev
+        - clangdev
+        - llvm-spirv
+        - libllvmspirv
+        - if: linux
+          then:
+            - libxcb
+            - xorg-libx11
+            - xorg-xorgproto
+            - xorg-libxrandr
+            - xorg-libxshmfence
+        - if: win
+          then:
+            - libxml2-devel
+            - directx-headers
+      run_exports:
+        - ${{ pin_subpackage('mesa-dzn', upper_bound='x.x') }}
+    tests:
+      - script:
+          - if not exist %LIBRARY_PREFIX%\bin\vulkan_dzn.dll exit 1
+          - if not exist %LIBRARY_PREFIX%\share\vulkan\icd.d\dzn_icd.x86_64.json exit 1
+          - if exist %LIBRARY_PREFIX%\bin\vulkan_lvp.dll exit 1
+          - if exist %LIBRARY_PREFIX%\include\directx\d3d12.h exit 1
 
   - package:
       name: mesa-kosmickrisp
       version: ${{ version }}
     build:
+      # Vulkan on top of Metal -- hardware-backed, so not part of mesalib
       skip:
         - not (osx and arm64)
-      script: build_kosmickrisp
+      script: build_vulkan
     requirements:
       build:
         - ${{ compiler('c') }}
@@ -127,91 +736,39 @@ outputs:
         - ${{ pin_subpackage('mesa-kosmickrisp', upper_bound='x.x') }}
     tests:
       - script:
+          - test -f $PREFIX/lib/libvulkan_kosmickrisp${SHLIB_EXT}
           - test -f $PREFIX/share/vulkan/icd.d/kosmickrisp_mesa_icd.aarch64.json
 
   - package:
-      name: mesa-llvmpipe
+      name: mesa-intel
       version: ${{ version }}
     build:
       skip:
-        - osx
-      script: build_llvmpipe
+        - not (linux and x86_64)
     requirements:
-      build:
-        - ${{ compiler('c') }}
-        - ${{ stdlib('c') }}
-        - ${{ compiler('cxx') }}
-        - meson
-        - pyyaml
-        - mako
-        - packaging
-        - if: unix
-          then:
-            - flex
-            - bison
-        - if: win
-          then: winflexbison
-        - pkg-config
-        - if: build_platform != host_platform
-          then:
-            - llvm
-            - llvmdev
-            - if: linux
-              then: libdrm
-        - glslang
-      host:
-        - if: unix
-          then: expat
-        - zlib
-        - zstd
-        - spirv-tools
-        - if: linux
-          then: libdrm
-        - llvm
-        - llvmdev
-        - if: linux
-          then:
-            - libxcb
-            - xorg-libx11
-            - xorg-libxext
-            - xorg-libxxf86vm
-            - xorg-xorgproto
-            - xorg-libxrandr
-            - xorg-libxshmfence
-            - libglvnd-devel
-            - libegl-devel
-            - libglx-devel
-        - if: win
-          then:
-            - libxml2-devel
-      run_exports:
-        - ${{ pin_subpackage('mesa-llvmpipe', upper_bound='x.x') }}
+      run:
+        - ${{ pin_subpackage('mesa-iris', exact=True) }}
+        - ${{ pin_subpackage('mesa-anv', exact=True) }}
     tests:
       - script:
-          - if: linux
-            then:
-              - test -f $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
-              - test -f $PREFIX/lib/libgbm.so.1
-              - test -f $PREFIX/lib/libGLX_mesa.so.0
-              - test -f $PREFIX/lib/libEGL_mesa${SHLIB_EXT}
-              - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
-          - if: win
-            then:
-              - if not exist %LIBRARY_PREFIX%\bin\opengl32.dll exit 1
-              - if not exist %LIBRARY_PREFIX%\bin\libgallium_wgl.dll exit 1
+          - test -L $PREFIX/lib/dri/iris_dri${SHLIB_EXT}
+          - test -f $PREFIX/lib/libvulkan_intel${SHLIB_EXT}
 
   - package:
       name: mesalib
       version: ${{ version }}
+    # mesalib means software rendering: llvmpipe for OpenGL, lavapipe for
+    # Vulkan.  Everything else mesa builds is backed by real hardware --
+    # iris/anv (Intel), dzn (D3D12), kosmickrisp (Metal) -- and is now
+    # installed deliberately by name instead of arriving with mesalib.
+    #
+    # On macOS mesa builds no OpenGL at all, so mesalib is lavapipe alone.
     requirements:
       run:
         - ${{ pin_subpackage('mesa-lavapipe', exact=True) }}
         - if: not osx
           then:
             - ${{ pin_subpackage('mesa-llvmpipe', exact=True) }}
-        - if: osx and arm64
-          then:
-            - ${{ pin_subpackage('mesa-kosmickrisp', exact=True) }}
       run_exports:
         - ${{ pin_subpackage('mesalib', upper_bound='x.x') }}
     tests:
@@ -219,26 +776,14 @@ outputs:
           - if: unix
             then:
               - test -f $PREFIX/lib/libvulkan_lvp${SHLIB_EXT}
-              - if: x86_64
-                then:
-                  - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.x86_64.json
-              - if: aarch64
-                then:
-                  - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.aarch64.json
-              - if: ppc64le
-                then:
-                  - test -f $PREFIX/share/vulkan/icd.d/lvp_icd.ppc64le.json
           - if: linux
             then:
+              - test -L $PREFIX/lib/dri/swrast_dri${SHLIB_EXT}
               - test -f $PREFIX/lib/libEGL_mesa${SHLIB_EXT}
               - test -f $PREFIX/lib/libgallium-*${SHLIB_EXT}
-          - if: osx and arm64
-            then:
-              - test -f $PREFIX/share/vulkan/icd.d/kosmickrisp_mesa_icd.aarch64.json
           - if: win
             then:
               - if not exist %LIBRARY_PREFIX%\bin\vulkan_lvp.dll exit 1
-              - if not exist %LIBRARY_PREFIX%\share\vulkan\icd.d\lvp_icd.x86_64.json exit 1
               - if not exist %LIBRARY_PREFIX%\bin\opengl32.dll exit 1
               - if not exist %LIBRARY_PREFIX%\bin\libgallium_wgl.dll exit 1
 
